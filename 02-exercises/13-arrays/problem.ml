@@ -54,7 +54,8 @@ let () =
 
    Let's implement a function [double] using [Array.iteri], which takes an [int
    array] and doubles each element of the array in place. *)
-let double array : unit = failwith "For you to implement"
+let double array : unit =
+  Array.iteri array ~f:(fun i x -> Array.set array i (x*2) )
 
 let%test "Testing double..." = 
   let array = [| 1; 1; 1 |] in
@@ -72,7 +73,22 @@ let%test "Testing double..." =
 
 (* Write a function that takes an [int array] and a list of indicies and
    doubles each of the elements at the specified indices. *)
-let double_selectively array indices : unit = failwith "For you to implement"
+(* let double_selectively array (indices: int array) : unit = *)
+(*   Array.iteri array ~f:( *)
+(*     fun i x ->  *)
+(* let rec findidx arr ~init idx = if Array.length arr = idx then init else findidx arr ~init:(init || (arr.(idx) = i)) (idx + 1) in *)
+(*       if findidx indices ~init:false 0 then Array.set array i (x*2) else () *)
+(*   ) *)
+(* 原来indices是个list，我以为也是array呢 *)
+let double_selectively array indices : unit =
+  Array.iteri array ~f:(
+    fun i x -> 
+      let found = match List.find indices ~f:(fun x -> x = i) with
+        | Some _ -> true
+        | None -> false
+      in
+      if found then Array.set array i (x*2) else ()
+  )
 
 let%test "Testing double_selectively..." = 
   let array = [| 1; 1; 1 |] in
@@ -103,7 +119,7 @@ let () =
 
 (* Write a function that takes an [int array array] and doubles each of the
    elements at the specified indices. *)
-let double_matrix matrix : unit = failwith "For you to implement"
+let double_matrix matrix : unit = Array.iter matrix ~f:(fun row -> double row)
 
 let%test "Testing double_matrix..." = 
   let matrix = [| [| 1; 2; 3 |]; [| 1; 1; 1 |] |] in
