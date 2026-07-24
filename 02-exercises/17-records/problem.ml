@@ -60,7 +60,10 @@ let () = assert (23 = (add_one_to_age an_example).age)
 
    - Otherwise, you should increase the number of cars by 6.  *)
 let modify_person (person : person) =
-  failwith "For you to implement"
+  if String.equal person.first_name "Jan" then
+    {person with age = 30}
+  else
+    {person with number_of_cars = person.number_of_cars + 6}
 
 module For_testing = struct
   let test_ex1 : person = {
