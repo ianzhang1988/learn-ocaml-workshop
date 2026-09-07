@@ -6,6 +6,13 @@ open Scaffold
  * you get going. *)
 [@@@warning "-32"]
 
+module Boarder = struct
+
+  let height = List.length Board.rows
+  let width = Board.num_cols
+
+end
+
 module Frog = struct
   type t =
     { position : Position.t;
@@ -19,16 +26,16 @@ module Frog = struct
   let left  f = {position = { f.position with x = (f.position.x - 1) }; img = Image.Frog_left }
   let right f = {position = { f.position with x = (f.position.x + 1) }; img = Image.Frog_right }
 
+  let position t = t.position
+  let keep_in_world t =
+    let new_pos = 
+      Position.{ x = if t.position.x > Boarder.width - 1 then Boarder.width - 1 else if t.position.x < 0 then 0 else t.position.x;
+        y = if t.position.y > Boarder.height - 1 then Boarder.height - 1 else if t.position.y <0 then 0 else t.position.y 
+      }
+    in
+    {t with position = new_pos}
+
 end
-
-let in_canvas_fun x1 x2 y1 y2 =
-  fun (pos:Position.t) ->
-    let x_in_range = pos.x >= x1 && pos.x < x2 in
-    let y_in_range = pos.y >= y1 && pos.y < y2 in
-    x_in_range && y_in_range
-
-let in_canvas =
-  in_canvas_fun 0 Board.num_cols 0 (List.length Board.rows) 
 
 module Non_frog_character = struct
   module Kind = struct
@@ -42,24 +49,41 @@ module Non_frog_character = struct
       kind: Kind.t;
       pos:  Position.t;
       speed: int;
-      shadows: bool list;
     } [@@deriving fields]
 
 
   let kind t = t.kind
   let position t = t.pos
+  let move t = 
+    {t with pos = { t.pos with x = t.pos.x + t.speed }}
+  let keep_in_world t =
+    let new_pos = 
+      { t.pos with x =
+          if t.pos.x >= 0 then t.pos.x % Boarder.width 
+          else
+          Boarder.width - 1
+      }
+    in
+    {t with pos = new_pos}
 
   (** In units of grid-points/tick. Positive values indicate rightward motion,
      negative values leftward motion. *)
   let horizontal_speed t = t.speed
-  let shadows t = t.shadows
 
   let img t =
     match t.kind with
     | Car -> Image.Car1_right
     | Log -> Image.Car1_right
-
 end
+
+
+module type With_position = sig
+  type t
+  val keep_in_world: t -> t
+end
+
+let keep_in_world (type a) (module M: With_position with type t=a) (entity:a) =
+  M.keep_in_world entity
 
 module World = struct
   type t =
@@ -75,8 +99,8 @@ let create_frog () =
 ;;
 
 let create () =
-  let shadows = List.init 10 ~f:(fun _ -> Random.bool () ) in
-  let nfc:Non_frog_character.t = {kind = Car; pos = {x = 0; y = 1}; speed = 1; shadows = shadows} in
+  let _presence = List.init 10 ~f:(fun _ -> Random.bool () ) in
+  let nfc:Non_frog_character.t = {kind = Car; pos = {x = 0; y = 1}; speed = 1; } in
   World.create ~frog:(create_frog () ) ~nfcs:[nfc]
 ;;
 
@@ -92,7 +116,8 @@ let tick (w : World.t) =
   let new_nfcs =
     List.map w.nfcs ~f:(
       fun nfc ->
-        {nfc with pos = { nfc.pos with x = (nfc.pos.x + nfc.speed) % Board.num_cols;  }}
+        let nfc_tmp = Non_frog_character.move nfc in
+        keep_in_world (module Non_frog_character) nfc_tmp
       )
   in
   {
@@ -117,10 +142,7 @@ let handle_input (w : World.t) (k : Key.t) =
       | Arrow_down -> Frog.down w.frog
       | Arrow_left -> Frog.left w.frog
       | Arrow_right -> Frog.right w.frog in
-    if in_canvas frog_tmp.position then
-      frog_tmp
-    else
-      w.frog
+    keep_in_world (module Frog) frog_tmp
   in
   (* World.create ~frog:new_frog *)
   { w with frog = new_frog }
