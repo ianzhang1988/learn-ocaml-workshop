@@ -52,6 +52,7 @@ module Non_frog_character = struct
     } [@@deriving fields]
 
 
+  let create = Fields.create
   let kind t = t.kind
   let position t = t.pos
   let move t = 
@@ -73,7 +74,7 @@ module Non_frog_character = struct
   let img t =
     match t.kind with
     | Car -> Image.Car1_right
-    | Log -> Image.Car1_right
+    | Log -> Image.Log2
 end
 
 
@@ -98,10 +99,39 @@ let create_frog () =
   Frog.create ~position:(Position.create ~x:5 ~y:0) ~img:Image.Frog_up
 ;;
 
+let random_speed () =
+  let n = 1 + Random.int 3 in   (* 1, 2, 3 *)
+  if Random.bool () then n else -n
+
 let create () =
-  let _presence = List.init 10 ~f:(fun _ -> Random.bool () ) in
-  let nfc:Non_frog_character.t = {kind = Car; pos = {x = 0; y = 1}; speed = 1; } in
-  World.create ~frog:(create_frog () ) ~nfcs:[nfc]
+  let nfcs_list = List.mapi Board.rows ~f:(fun row_idx row_type ->
+    match row_type with
+    | Board.Row.Safe_strip -> []
+    | Board.Row.Road | Board.Row.River ->
+      let presence = List.init Board.num_cols ~f:(fun _ -> Random.bool () ) in
+      let speed = random_speed () in
+      let kind = match row_type with
+        | Board.Row.Road -> Non_frog_character.Kind.Car
+        | Board.Row.River -> Non_frog_character.Kind.Log
+        | Board.Row.Safe_strip -> assert false
+      in
+      List.mapi presence ~f:(fun col_idx present -> 
+        if present then
+          Some (Non_frog_character.create ~kind:kind ~speed:speed ~pos:(Position.create ~x:col_idx ~y:row_idx))
+        else
+          None
+      )
+  )
+  in
+  let nfcs_tmp = List.concat nfcs_list in
+  let nfcs = List.fold nfcs_tmp ~init:[] ~f:(
+      fun acc nfc_opt ->
+      match nfc_opt with
+      | Some nfc -> nfc::acc
+      | None -> acc
+    )
+  in
+  World.create ~frog:(create_frog () ) ~nfcs:nfcs
 ;;
 
 let tick (w : World.t) =
